@@ -15,6 +15,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class Extension extends ServiceProvider
 {
@@ -67,6 +69,42 @@ class Extension extends ServiceProvider
                     'threshold' => $data['threshold'],
                     'enabled' => (bool) $data['enabled'],
                 ]);
+
+                return response()->json(['ok' => true]);
+            });
+
+            Route::post('/create', function (Request $request) {
+                $data = $request->validate([
+                    'name' => ['required', 'string', 'max:60'],
+                    'emoji' => ['nullable', 'string', 'max:16'],
+                    'color' => ['required', 'regex:/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
+                    'criteria_type' => ['required', Rule::in(['posts', 'topics', 'reactions_received', 'age_days', 'order'])],
+                    'threshold' => ['required', 'integer', 'min:0'],
+                ]);
+                $base = Str::slug($data['name']) ?: 'badge';
+                $slug = $base;
+                $i = 2;
+                while (Badge::where('slug', $slug)->exists()) {
+                    $slug = $base.'-'.$i++;
+                }
+                Badge::create([
+                    'slug' => $slug,
+                    'name' => $data['name'],
+                    'emoji' => $data['emoji'] ?: '🏅',
+                    'color' => $data['color'],
+                    'criteria_type' => $data['criteria_type'],
+                    'threshold' => $data['threshold'],
+                    'enabled' => true,
+                    'position' => (int) (Badge::max('position') ?? 0) + 10,
+                ]);
+
+                return response()->json(['ok' => true]);
+            });
+
+            Route::post('/delete', function (Request $request) {
+                $id = (int) $request->input('id');
+                DB::table('user_badges')->where('badge_id', $id)->delete();
+                Badge::whereKey($id)->delete();
 
                 return response()->json(['ok' => true]);
             });
@@ -131,6 +169,7 @@ class Extension extends ServiceProvider
                 <span class="holders">· {$b->holders} member(s) have this</span>
                 <button class="save" onclick="saveBadge(this)">Save</button>
                 <span class="ok" hidden>✓ saved</span>
+                <button class="del" onclick="delBadge(this)">Delete</button>
               </div>
               <div class="desc">{$e($b->description)}</div>
             </div>
@@ -171,12 +210,38 @@ class Extension extends ServiceProvider
           .rescan { background: #2a2f46; color: #e7e9f2; }
           .ok { color: #34d399; font-size: 13px; }
           .empty { color: #9aa0b8; }
+          .del { background: transparent; color: #f87171; }
+          .del:hover { background: #f8717122; }
+          .new { border-style: dashed; }
+          select { background: #0f1117; border: 1px solid #2a2f46; color: #e7e9f2; border-radius: 8px; padding: 7px 9px; font: inherit; }
         </style></head>
         <body><div class="wrap">
           <a class="back" href="/admin">← Back to admin</a>
           <h1>🏅 Member Badges</h1>
           <p class="sub">Badges are awarded automatically as members participate. Edit a badge, then hit Save. Use “Re-scan” after changing thresholds so existing members get re-evaluated.</p>
           <p><button class="rescan" onclick="rescan(this)">Re-scan all members</button> <span id="rescanOk" class="ok" hidden>✓ done</span></p>
+
+          <div class="card new">
+            <strong>＋ Add a badge</strong>
+            <div class="row" style="margin-top:10px">
+              <input id="n_emoji" class="emoji" value="🏅" maxlength="16" aria-label="Emoji" />
+              <input id="n_name" class="name" placeholder="Badge name" maxlength="60" aria-label="Name" />
+              <input id="n_color" class="color" type="color" value="#5b5bd6" aria-label="Color" />
+            </div>
+            <div class="meta">
+              Award when a member reaches
+              <input id="n_threshold" class="threshold" type="number" min="0" value="10" />
+              <select id="n_criteria">
+                <option value="posts">posts written</option>
+                <option value="topics">topics started</option>
+                <option value="reactions_received">reactions received</option>
+                <option value="age_days">days as a member</option>
+                <option value="order">among the first N members</option>
+              </select>
+              <button class="save" onclick="createBadge()">Create</button>
+            </div>
+          </div>
+
           {$rows}
         </div>
         <script>
@@ -203,6 +268,24 @@ class Extension extends ServiceProvider
             await post('/admin/ext/badges/rescan');
             btn.disabled = false; btn.textContent = 'Re-scan all members';
             const ok = document.getElementById('rescanOk'); ok.hidden = false; setTimeout(() => (ok.hidden = true), 2000);
+          }
+          async function createBadge() {
+            const name = document.getElementById('n_name').value.trim();
+            if (!name) { alert('Please enter a badge name'); return; }
+            const ok = await post('/admin/ext/badges/create', {
+              name: name,
+              emoji: document.getElementById('n_emoji').value,
+              color: document.getElementById('n_color').value,
+              criteria_type: document.getElementById('n_criteria').value,
+              threshold: Number(document.getElementById('n_threshold').value),
+            });
+            if (ok) location.reload();
+          }
+          async function delBadge(btn) {
+            if (!confirm('Delete this badge? Members will lose it.')) return;
+            const card = btn.closest('.card');
+            const ok = await post('/admin/ext/badges/delete', { id: Number(card.dataset.id) });
+            if (ok) card.remove();
           }
         </script>
         </body></html>
