@@ -216,7 +216,6 @@ class Extension extends ServiceProvider
           select { background: #0f1117; border: 1px solid #2a2f46; color: #e7e9f2; border-radius: 8px; padding: 7px 9px; font: inherit; }
         </style></head>
         <body><div class="wrap">
-          <a class="back" href="/admin">← Back to admin</a>
           <h1>🏅 Member Badges</h1>
           <p class="sub">Badges are awarded automatically as members participate. Edit a badge, then hit Save. Use “Re-scan” after changing thresholds so existing members get re-evaluated.</p>
           <p><button class="rescan" onclick="rescan(this)">Re-scan all members</button> <span id="rescanOk" class="ok" hidden>✓ done</span></p>
