@@ -1,0 +1,15 @@
+{
+  "id": "convoro-badges",
+  "name": "Member Badges",
+  "version": "1.0.0",
+  "description": "Reward members with earnable badges — first post, milestones, reactions received, founding member and more. Auto-awarded as members participate, shown on their profile.",
+  "author": "Convoro",
+  "convoro": ">=0.41.0",
+  "namespace": "Convoro\\Ext\\Badges\\",
+  "provider": "Convoro\\Ext\\Badges\\Extension",
+  "migrations": "migrations",
+  "admin_url": "/admin/ext/badges",
+  "assets": { "forum": "assets/forum.js" },
+  "premium": false,
+  "price": 0
+}
